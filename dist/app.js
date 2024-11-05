@@ -1,167 +1,197 @@
 "use strict";
+///
+// Project Type
+var ProjectStatus;
+(function (ProjectStatus) {
+    ProjectStatus[ProjectStatus["Active"] = 0] = "Active";
+    ProjectStatus[ProjectStatus["Finished"] = 1] = "Finished";
+})(ProjectStatus || (ProjectStatus = {}));
+class Project {
+    constructor(id, title, description, // Fixed typo here
+    people, status) {
+        this.id = id;
+        this.title = title;
+        this.description = description;
+        this.people = people;
+        this.status = status;
+    }
+}
+class State {
+    constructor() {
+        this.listeners = [];
+    }
+    addListener(listenerFn) {
+        this.listeners.push(listenerFn);
+    }
+}
+class ProjectState extends State {
+    constructor() {
+        super();
+        this.projects = [];
+    }
+    static getInstance() {
+        if (this.instance) {
+            return this.instance;
+        }
+        this.instance = new ProjectState();
+        return this.instance;
+    }
+    addProject(title, description, numOfPeople) {
+        const newProject = new Project(Math.random().toString(), title, description, numOfPeople, ProjectStatus.Active);
+        this.projects.push(newProject);
+        for (const listenerFn of this.listeners) {
+            listenerFn(this.projects.slice());
+        }
+    }
+}
+const projectState = ProjectState.getInstance();
 function validate(validatableInput) {
     let isValid = true;
     if (validatableInput.required) {
         isValid = isValid && validatableInput.value.toString().trim().length !== 0;
     }
-    if (validatableInput.minLength && typeof validatableInput.value === "string") {
-        isValid = isValid && validatableInput.value.trim().length >= validatableInput.minLength;
+    if (validatableInput.minLength != null &&
+        typeof validatableInput.value === 'string') {
+        isValid =
+            isValid && validatableInput.value.length >= validatableInput.minLength;
     }
-    if (validatableInput.maxLength && typeof validatableInput.value === "string") {
-        isValid = isValid && validatableInput.value.trim().length <= validatableInput.maxLength;
+    if (validatableInput.maxLength != null &&
+        typeof validatableInput.value === 'string') {
+        isValid =
+            isValid && validatableInput.value.length <= validatableInput.maxLength;
     }
-    if (validatableInput.min && typeof validatableInput.value === "number") {
+    if (validatableInput.min != null &&
+        typeof validatableInput.value === 'number') {
         isValid = isValid && validatableInput.value >= validatableInput.min;
     }
-    if (validatableInput.max && typeof validatableInput.value === "number") {
+    if (validatableInput.max != null &&
+        typeof validatableInput.value === 'number') {
         isValid = isValid && validatableInput.value <= validatableInput.max;
     }
     return isValid;
 }
-var ProjectStatus;
-(function (ProjectStatus) {
-    ProjectStatus[ProjectStatus["active"] = 0] = "active";
-    ProjectStatus[ProjectStatus["finished"] = 1] = "finished";
-})(ProjectStatus || (ProjectStatus = {}));
-//class type
-class Project {
-    constructor(id, title, descrption, people, status) {
-        this.id = id;
-        this.title = title;
-        this.descrption = descrption;
-        this.people = people;
-        this.status = status;
+// Component Base Class
+class Component {
+    constructor(templateId, hostElementId, insertAtStart, newElementId) {
+        this.templateElement = document.getElementById(templateId);
+        this.hostElement = document.getElementById(hostElementId);
+        const importedNode = document.importNode(this.templateElement.content, true);
+        this.element = importedNode.firstElementChild;
+        if (newElementId) {
+            this.element.id = newElementId;
+        }
+        this.attach(insertAtStart);
+    }
+    attach(insertAtBeginning) {
+        this.hostElement.insertAdjacentElement(insertAtBeginning ? 'afterbegin' : 'beforeend', this.element);
     }
 }
-// class state
-class ProjectState {
-    constructor() {
-        this.listener = [];
-        this.projects = [];
-    }
-    static getInstence() {
-        if (this.instence) {
-            return this.instence;
-        }
-        this.instence = new ProjectState();
-        return this.instence;
-    }
-    addListener(listenrFn) {
-        this.listener.push(listenrFn);
-    }
-    addProject(title, description, people) {
-        const newProject = {
-            id: Math.random().toString(),
-            title: title,
-            descrption: description,
-            people: people,
-            status: ProjectStatus.active
-        };
-        this.projects.push(newProject);
-        for (const listenerFn of this.listener) {
-            listenerFn(this.projects.slice());
-        }
-    }
-}
-const projectState = ProjectState.getInstence();
-class ProjectList {
-    constructor(type) {
-        this.type = type;
-        this.assignedProject = [];
-        this.templateElement = document.getElementById("project-list");
-        this.hostElement = document.getElementById("app");
-        this.assignedProject = [];
-        const importNode = document.importNode(this.templateElement.content, true);
-        this.element = importNode.firstElementChild;
-        this.element.id = `${this.type}-projects`;
-        projectState.addListener((projects) => {
-            this.assignedProject = projects;
-            this.renderProject();
-        });
-        this.attache();
-        this.renderedContent();
-    }
-    renderProject() {
-        const listEl = document.getElementById(`${this.type}-projects-list`);
-        for (const prjItem of this.assignedProject) {
-            const listItem = document.createElement("li");
-            listItem.textContent = prjItem.title;
-            listEl.appendChild(listItem);
-        }
-    }
-    renderedContent() {
-        const listId = `${this.type}-projects-list`;
-        this.element.querySelector("ul").id = listId;
-        this.element.querySelector("h2").textContent = this.type.toUpperCase() + 'PROJECTS';
-    }
-    attache() {
-        this.hostElement.insertAdjacentElement("beforeend", this.element);
-    }
-}
-class ProjectInputs {
-    constructor() {
-        this.templateElement = document.getElementById("project-input");
-        this.hostElement = document.getElementById("app");
-        const importNode = document.importNode(this.templateElement.content, true);
-        this.element = importNode.firstElementChild;
-        this.element.id = "user-input";
-        this.TitleElementInput = this.element.querySelector("#title");
-        this.descriptionElementInput = this.element.querySelector("#description");
-        this.peopleElementInput = this.element.querySelector("#people");
+class ProjectItem extends Component {
+    constructor(hostedId, project) {
+        super("single-project", hostedId, false, project.id);
+        this.project = project;
         this.configure();
-        this.attach();
+        this.renderContent();
     }
-    clearInputs() {
-        this.TitleElementInput.value = "";
-        this.descriptionElementInput.value = "";
-        this.peopleElementInput.value = "";
+    configure() { }
+    renderContent() {
+        this.element.querySelector('h2').textContent = this.project.title;
+        this.element.querySelector('h3').textContent = this.project.people.toString() + "assigned";
+        this.element.querySelector('p1').textContent = this.project.description;
     }
-    gatherUsreInputs() {
-        const enterdTitle = this.TitleElementInput.value;
-        const enterdDescription = this.descriptionElementInput.value;
-        const enterdpeople = this.peopleElementInput.value;
+}
+// ProjectList Class
+class ProjectList extends Component {
+    constructor(type) {
+        super('project-list', 'app', false, `${type}-projects`);
+        this.type = type;
+        this.assignedProjects = [];
+        this.configure();
+        this.renderContent();
+    }
+    configure() {
+        projectState.addListener((projects) => {
+            const relevantProjects = projects.filter((prj) => {
+                if (this.type === 'active') {
+                    return prj.status === ProjectStatus.Active;
+                }
+                return prj.status === ProjectStatus.Finished;
+            });
+            this.assignedProjects = relevantProjects;
+            this.renderProjects();
+        });
+    }
+    renderContent() {
+        const listId = `${this.type}-projects-list`;
+        this.element.querySelector('ul').id = listId;
+        this.element.querySelector('h2').textContent =
+            this.type.toUpperCase() + ' PROJECTS';
+    }
+    renderProjects() {
+        const listEl = document.getElementById(`${this.type}-projects-list`);
+        listEl.innerHTML = '';
+        for (const prjItem of this.assignedProjects) {
+            new ProjectItem(this.element.querySelector("ul").id, prjItem);
+        }
+    }
+}
+// ProjectInput Class
+class ProjectInput extends Component {
+    constructor() {
+        super('project-input', 'app', true, 'user-input');
+        this.titleInputElement = this.element.querySelector('#title');
+        this.descriptionInputElement = this.element.querySelector('#description');
+        this.peopleInputElement = this.element.querySelector('#people');
+        this.configure();
+    }
+    configure() {
+        this.element.addEventListener('submit', this.submitHandler.bind(this)); // Binding this here
+    }
+    renderContent() { }
+    gatherUserInput() {
+        const enteredTitle = this.titleInputElement.value;
+        const enteredDescription = this.descriptionInputElement.value;
+        const enteredPeople = this.peopleInputElement.value;
         const titleValidatable = {
-            value: enterdTitle,
+            value: enteredTitle,
             required: true,
         };
         const descriptionValidatable = {
-            value: enterdDescription,
+            value: enteredDescription,
             required: true,
-            minLength: 5
+            minLength: 5,
         };
         const peopleValidatable = {
-            value: +enterdpeople,
+            value: +enteredPeople,
             required: true,
-            min: 2,
-            max: 5
+            min: 1,
+            max: 5,
         };
         if (!validate(titleValidatable) ||
             !validate(descriptionValidatable) ||
             !validate(peopleValidatable)) {
-            alert("wrong");
+            alert('Invalid input, please try again!');
             return;
         }
         else {
-            return [enterdTitle, enterdDescription, +enterdpeople];
+            return [enteredTitle, enteredDescription, +enteredPeople];
         }
+    }
+    clearInputs() {
+        this.titleInputElement.value = '';
+        this.descriptionInputElement.value = '';
+        this.peopleInputElement.value = '';
     }
     submitHandler(event) {
         event.preventDefault();
-        const userInput = this.gatherUsreInputs();
+        const userInput = this.gatherUserInput();
         if (Array.isArray(userInput)) {
-            const [title, desc, people] = [...userInput];
+            const [title, desc, people] = userInput;
             projectState.addProject(title, desc, people);
-            console.log(userInput);
             this.clearInputs();
         }
     }
-    configure() {
-        this.element.addEventListener("submit", this.submitHandler.bind(this));
-    }
-    attach() {
-        this.hostElement.insertAdjacentElement("afterbegin", this.element);
-    }
 }
-const inputProject = new ProjectInputs();
-const activeProjectList = new ProjectList("active");
-const finichedrojectList = new ProjectList("finished");
+const prjInput = new ProjectInput();
+const activePrjList = new ProjectList('active');
+const finishedPrjList = new ProjectList('finished');
